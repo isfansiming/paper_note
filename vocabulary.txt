@@ -1,0 +1,30 @@
+ high-resolution  images 		高分辨率的图像
+ ImageNet LSVRC-2010 contest		Large Scale Visual Recognition Challenge
+ state-of-the-art 				最先进的
+ non-saturating neuron			不饱和的神经元
+ on the order of  				大约
+ heuristic						启发式的
+ probe							探索
+ testbed						测试台
+ a few generations of			几代……
+ model ensemble					模型集合
+ citation						引用
+ benchmark						基准
+ in a fair setting				在公平的环境中
+ inspired by……					灵感来自……
+ a generic layout 				一个通用设计?
+ refer to the nets by their names  按名称来提及网络
+ brevity						简洁 brief的名词
+ entries						参赛作品
+ discriminative					有辨别力的，歧视的
+ impose							把……强加于
+ The incorporation of……			结合……
+ is essentially a……				基本上是……
+ et al.							以及其他(人)，拉丁文 et alia 的缩写，and so on
+ etc							以及其他    ，拉丁文 et cetera 的缩写，and so forth [ˌɪt'setərə] 
+ stall learning					阻碍学习
+ To circumvent this problem		为了规避这个问题
+ randomly crop					随机裁剪
+ rescaled training images		归一化的(重新调节的)训练图像
+ isotropically-rescaled			等轴归一化
+ refer ... as ... 				把……称为……

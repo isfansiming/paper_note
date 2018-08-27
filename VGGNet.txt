@@ -1,0 +1,90 @@
+ConvNet
+ILSVRC 2014分类第二、定位第一
+探索了深度和性能的关系
+拓展性很强，迁移到其他图片数据上泛化性很好
+结构简洁
+可用来提取图像特征
+
+1.Introduction
+ConvNets近来在大规模图像和视频识别方面取得了巨大成功
+VGGNet通过反复堆叠3*3卷积核和2*2池化层，
+稳定地增加网络的深度到16~19层
+
+2.ConvNet Configurations
+2.1 Architecture
+	2.1.1 预处理：subtracting the mean RGB value of training set
+	2.1.2 filter: 3*3 是能捕获上/下/左/右/中心概念的最小尺寸
+				1*1 可以看做输入通道的线性变换/(followed by non-linearity) (相同维度空间上的线性投影，在Lin等人(2014)NIN架构中使用)
+				stride=1
+	2.1.3 spatial padding 来保留spatial resolution(空间分辨率)
+	2.1.4 池化：2*2，stride=2，不是每个卷积层后面都要池化
+	2.1.5 一堆卷积层+3*FC层(4096,4096,1000soft-max)
+	2.1.6 所有隐藏层配备了Recification(ReLU(Krizhevsky et al.,2012))non-linearity.
+	2.1.7 不包含Local Response Normalisation(LRN,局部响应归一化)，因为不提高性能反而增加内存消耗和计算时间
+2.2 Configurations(图中cnn表示为conv⟨receptive field size⟩-⟨number of channels⟩，加粗为新添加层，不显示ReLU)
+	2.2.1网络A-E的配置都遵循2.1节提出的通用设计，并且仅是深度不同
+	2.2.2用3个3*3卷积层的堆叠来替换7*7卷积层的优点：
+		一是结合了3个非线性修正层，使得decision function 更 discriminative
+		二是减少了参数的数量：假设输出有C个通道，
+		则堆叠卷积层参数为3(3^2*C^2)=27C^2,
+		而单个卷积层参数为7^2*C^2=49C^2
+		可以看作impose a regularisation on the 7*7 conv.filters
+	2.2.3 GoogleNet 的 topology更复杂，且在第一层中特征图的spatial resolution 减少得更aggressively来减少计算量?
+			VGGNet在single-network 分类精度上优于Szegedy的GoogleNet
+			
+3. 分类框架
+3.1 Training
+	3.1.1遵循Krizhevsky(2012)的SGD+momentum
+		SGD(based on back-propagation (LeCun et al., 1989))
+		batch_size=256,
+		momentum=0.9,
+		weight_decay(L2=5*10^-4),
+		dropout,
+		lr=0.01，且当验证集准确率停止改善时，减少10倍,总共降低3次
+		学习停止 after 370K iterations (74 epochs).
+		#虽然相比AlexNet来说参数、深度更大，但只需要更小的epoch就可以收敛
+		#推测这是因为greater depth和smaller conv.filter sizes带来的implicit regularisation
+		数据增强 horizontal flipping and random RGB colour shift (Krizhevsky et al., 2012)
+	3.1.2权重初始化很重要，这是因为深度网络中梯度的不稳定，不好的初始化可能会阻碍学习。
+		为此先通过随机初始化(0-mean,0.01variance的normal distribution)来训练比较浅的配置A，然后在训练更深的架构时，
+		用A的层初始化前四个conv layer和后三个FC layer(中间层被随机初始化)
+	3.1.3 Multi-Scale
+		使用Multi-Scale方法做Data Augumentation,将原始图像缩放到不同的训练尺寸S，然后再随机裁切224*224图像。 
+		Let S = 等轴归一化的训练图像的最小边长 = training scale ，S>=224
+		For S<=224 the crop(裁截图像) will capture whole-image statistics(统计数据)，不管怎么裁剪都会包含整个原始图像的信息
+		For S>>224 the crop 将对应于图像的一小部分
+		训练方法：一种方法是固定S=256(当时广泛使用)和S=384，训练后取均值
+					另一种方法是multi-scale training，S从[256,512]中随机抽样，
+						这样图像目标会具有不同的大小，利于训练，这也可以看作scale jittering(尺寸抖动)
+3.2 Testing
+	Let Q = pre-defined smallest image side = Test Scale 不一定要等于S，并且不需要裁剪
+	3.2.1 将test等轴归一化到预定义的最小图像边Q
+	3.2.2 FC层转化为conv层(7*7,1*1,1*1)，这让FC应用到整个未裁剪的原始图像上(类似Sermanet,2014)
+			结果是一个类得分图(class score map)(它的通道数等于类别数)和一个取决于输入图像大小的可变空间分辨率
+	3.2.3 最后，类得分图在空间上平均(和池化)来获得类别分数的固定大小的向量
+	
+3.3 Implementation Details
+		
+	
+4.Classification Experiments
+4.1 单尺度评估
+	结论：
+	4.1.1 LRN并不能改善A的性能
+	4.1.2 分类误差随着深度增加而降低,3个3*3filter效果优于7*7filter
+	4.1.3 尺度抖动(Scale Jittering)可以改善图像分类效果
+4.2 多尺度评估
+	结论:
+	4.2.1 相对于单一尺度评估，多尺度评估提高了分类精度？
+	4.2.2 尺度抖动(Scale Jittering)可以改善图像分类效果
+4.3 多裁剪评估(multi-crop)
+	多裁剪评估比密集(dense)评估效果更好，且两者具有互补作用，结合两种方式效果更好
+4.4 卷积网络融合
+	结合多个CNN的softmax输出，分类结果会更好。
+
+5 结论
+6 ACKNOWLEDGEMENTS(致谢)
+reference：
+http://zhuanlan.zhihu.com/p/32853559 论文解读
+
+	
+	

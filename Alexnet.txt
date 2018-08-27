@@ -1,0 +1,105 @@
+ImageNet ISVRC-2010,2012
+60m parameters
+650k neurons
+5 conv layers,max-pooling,
+3 FC layers,1000-way softmax
+dropout in FC layer
+
+1.Introduction
+1.1数据集小有缺点
+直到最近，带标签的图像数据集相对小,大约几w
+(e.g., NORB [16], Caltech-101/256 [8, 9], andCIFAR-10/100 [12])
+用这个大小的数据集可以解决简单的识别任务，数据增强后效果更佳
+如MNIST最佳达到error<0.3%的人类水准[4]
+但物体在实际环境中出现相当大的变化，所以需要更大的训练数据。
+小数据集有很大缺点 (e.g., Pinto et al. [21])
+ImageNet包含15m labeled high-resolution images在本论文中属于大数据集
+
+1.2prior knowledge,CNN assumption
+immense complexity of the object recognition task
+意味着像ImageNet这样大的数据集也不足以解决问题
+因此我们的模型有许多prior knowledge来弥补缺乏的数据
+CNNs构成了这样的模型 [16, 11, 13, 18, 15, 22, 26].
+容量由depth和breadth控制，并且CNN对图像的本质做了很强且基本正确的假设
+(即统计的稳定性和像素依赖的局部性stationarity of statistics and locality of pixel dependencies)
+
+1.3论文贡献
+1.3.1 在在ILSVRC-2010和ILSVRC-2012[2]的ImageNet子集上训练并取得最好结果[2]
+1.3.2 编写了高度优化的2D卷积GPU实现以及训练卷积神经网络内部的所有其它操作，并开源
+1.3.3 我们网络包含一些新的、不一般的特性，提高了神经网络的性能并减少了训练时间【第三节】
+1.3.4 有效的过拟合技术【第四节】
+1.3.5 发现CNN深度的重要性
+1.3.6 网络尺寸主要受限于GPU容量和我们能忍受的训练时间，
+		我们的网络在两个GTX580 3GB 上训练五六天，
+		所有实验表明结果可以通过更快的GPU和更大的可用数据集来提高
+
+2. The Dataset
+2.1 ImageNet
+	有15m 带标签的高分辨率图像,22k个categories，
+	是从网上收集，Amazon’s Mechanical Turk crowd-sourcing tool通过人工标签
+	从2010年起成为Pascal视觉对象挑战赛的一部分，每年会举办ImageNet大规模视觉识别挑战赛(ILSVRC)
+	ILSVRC使用了ImageNet的一个子集，包含1k类别，每个类别大约1k图像，
+	总计大约1.2m图像，50k验证图像，150k测试图像
+2.2 ILSVRC-2010是ILSVRC竞赛中唯一可以获得test set labels的版本，因此我们大多数实验都在这个版本上运行
+2.3 评价标准
+	2.3.1Top-5错误率：即对一个图片，如果概率前五中包含正确答案，即认为正确。
+	2.3.2Top-1错误率：即对一个图片，如果概率最大的是正确答案，才认为正确。
+2.4 下采样
+	ImageNet包含各种分辨率的图像，因此需要下采样到256*256分辨率
+	具体操作：对矩形图像，先缩放短边长度为256，然后从图像中心裁剪
+2.5  预处理
+	对训练集减去mean activity，除此以外不做其他预处理
+
+3. The Architecture
+5cnn,3FC(Figure 2)
+特性如下(按重要性排序)
+3.1 ReLU Nonlinearity(Rectified Linear Units,ReLUs)
+	f(x)=tanh(x)或(1+e^-x)^-1是对删除建模的标准方式
+	考虑到梯度下降的训练时间，这些饱和的非线性比非饱和的非线性(f(x)=max(0,x))要慢很多[20]
+	ReLU比tanh快几倍(Figure 1，在CIFAR-10上达到25%的训练误差所需要的迭代次数)
+	#PS:饱和(saturate)在花书3.10中提到，
+	#sigmoid函数在变量取绝对值非常大的正值或负值时会出现饱和（saturate）现象，
+	#意味着函数会变得很平，并且对输入的微小改变会变得不敏感。 
+3.2 多GPU训练
+	3GB显存限制了网络最大尺寸。
+	GPU可以互相读写内存，而不需要通过主机内存，适合GPU并行
+	?trick:只在某些特性层上进行GPU通信
+?3.3 Local Response Normalization(局部响应归一化)
+	该方案减少了top-1 1.4%, top-5 1.2%的错误率
+3.4 Overlapping Pooling
+	CNN中的池化层归纳了同一核映射上相邻组神经元的输出。
+	论文中重叠池化即stride=2<z=3,在当时习惯上是不重叠即s>=z[17,11,4]
+	该方案减少了top-1 0.4，top-5 0.3%的错误率
+	在CIFAR-10上降低了2%的错误率
+3.5 Overall Architecture
+
+4.Ruducing Overfitting
+4.1 Data Augmentation
+	变换图像通过CPU的python代码生成，不需要存储在硬盘上
+	4.1.1 generating image translations(图像变换)和 horizontal reflections(水平翻转)
+		训练集上：在256*256图像上随机提取224*224图像
+		测试集上：提取5个224*224图像块(四个角和中心)和它们的水平翻转(共10个图像块)进行预测，
+			然后在10个图像块上的softmax层进行平均
+	?4.1.2 altering the intensities of the RGB channels (改变训练图像RGB通道的强度)
+		在整个ImageNet训练集上对RGB像素值集合执行PCA
+		该方案减少了top1错误率1%以上
+4.2 Dropout
+	
+5.Details of learning
+5.1 batch_size=128,momentum=0.9,weight_decay=0.0005
+	权重衰减不只是正则项，还能减少训练误差
+	update rule for weight w:
+		v_i+1 := 0.9*v_i - 0.0005*lr*w_i - lr*▽L……
+		w_i+1 := w_i + v_i+1
+		?其中▽L是Loss对w，在w_i的第i批导数D_i的平均
+5.2 !使用zero-mean,0.01std 的高斯分布初始化每一层的权重
+	!第2,4,5卷积层和Fc层初始化bias=1，这通过为ReLU提供正输入加速了学习的早期阶段，其余bias=0
+	!所有层使用相同的学习率(lr=0.01)，当验证误差停止改善时，使用启发式的(heuristic)方法lr/=10，在训练停止之前降低3次
+6.Results
+
+6.1 Qualitative Evaluations(定性评估)
+7 Discussion
+
+References
+1.https://mp.weixin.qq.com/s/iWaHZEAvPO0pw_u7DVGBqg 【重磅】最后一届ImageNet榜单出炉：颜水成等中国团队夺多项冠军
+2.
